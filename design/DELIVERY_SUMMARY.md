@@ -36,7 +36,7 @@ A complete Azure landing zone design tailored for banking sector organizations w
 - KQL-based anomaly detection
 
 ✅ **Infrastructure-as-Code Approach**
-- Terraform for core infrastructure
+- Bicep for core infrastructure
 - Bicep for policies and applications
 - GitHub-based deployment pipeline
 - Self-hosted runners in private network
@@ -73,7 +73,7 @@ design/
 │   └── ARCHITECTURE_DIAGRAMS.md           (10 Detailed Mermaid Diagrams)
 │
 ├── 📁 iac/
-│   └── hub-vnet.tf                        (Terraform Template: Hub VNet + Firewall + Bastion)
+│   └── bicep/landing-zone/hub-vnet.bicep   (Bicep Template: Hub VNet + Firewall + Bastion)
 │
 ├── 📁 policies/
 │   └── banking-compliance.bicep           (Bicep Template: Policy Definitions & Initiatives)
@@ -124,7 +124,7 @@ design/
 
 ### 5️⃣ IAC_DEPLOYMENT.md
 - **Repository Structure**: Complete folder layout
-- **3 Terraform Modules**: Networking, Security, Monitoring
+- **3 Bicep Modules**: Networking, Security, Monitoring
 - **3 GitHub Actions Workflows**: Validate, Plan, Deploy
 - **Runner Configuration**: Setup script and security
 - **Secrets Management**: Best practices
@@ -160,8 +160,8 @@ design/
 
 ## Code Templates Included
 
-### Terraform Code
-- ✅ **hub-vnet.tf** (250+ lines)
+### Bicep Code
+- ✅ **hub-vnet.bicep** (250+ lines)
   - Hub VNet with 6 subnets
   - Azure Firewall with rules
   - Bastion Host for secure access
@@ -217,7 +217,7 @@ design/
 | Centralized Governance | ✅ | GOVERNANCE_POLICIES.md, Policy definitions |
 | Azure Native Tools | ✅ | Monitoring section, LAW, AI, Azure Policy |
 | No DR | ✅ | Backup strategy only, COST_MANAGEMENT.md |
-| GitHub & IaC | ✅ | IAC_DEPLOYMENT.md, Terraform/Bicep templates |
+| GitHub & IaC | ✅ | IAC_DEPLOYMENT.md, Bicep templates |
 | South Africa North | ✅ | All templates default to southafricanorth |
 | Private Endpoints | ✅ | NETWORK_ARCHITECTURE.md, Policy enforcement |
 | GitHub Runner | ✅ | IAC_DEPLOYMENT.md, Runner setup section |
@@ -239,13 +239,13 @@ design/
 - **Tables**: 30+ reference tables
 
 ### Code Templates
-- **Terraform**: 250+ lines (fully functional)
+- **Bicep**: 250+ lines (fully functional)
 - **Bicep**: 350+ lines (production-ready)
 - **GitHub Actions**: 3 complete workflows
 
 ### Procedures Documented
 - **Implementation Steps**: 12-week phased approach
-- **Common Commands**: 20+ CLI/Git/Terraform commands
+- **Common Commands**: 20+ CLI/Git/Bicep commands
 - **Troubleshooting**: 10+ common issues with solutions
 - **Checklists**: 5 major checklists
 

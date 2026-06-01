@@ -14,7 +14,7 @@ This directory contains comprehensive design documentation for the Azure Banking
 | [NETWORK_ARCHITECTURE.md](./NETWORK_ARCHITECTURE.md) | **Detailed Network Design** | VNet topology, subnets, routing, NSGs, Firewall rules, Private endpoints, VNet peering configuration |
 | [GOVERNANCE_POLICIES.md](./GOVERNANCE_POLICIES.md) | **Policy as Code Framework** | Azure Policy definitions, initiatives, compliance monitoring, remediation strategies, naming conventions |
 | [MONITORING_OBSERVABILITY.md](./MONITORING_OBSERVABILITY.md) | **Monitoring & Observability as Code** | Log Analytics setup, KQL queries, alert rules, dashboards, SLAs, action groups |
-| [IAC_DEPLOYMENT.md](./IAC_DEPLOYMENT.md) | **Infrastructure as Code & CI/CD** | Terraform/Bicep strategy, repository structure, GitHub Actions workflows, runner configuration, secrets management |
+| [IAC_DEPLOYMENT.md](./IAC_DEPLOYMENT.md) | **Infrastructure as Code & CI/CD** | Bicep strategy, repository structure, GitHub Actions workflows, runner configuration, secrets management |
 | [COST_MANAGEMENT.md](./COST_MANAGEMENT.md) | **Cost Optimization & Tracking** | Cost allocation, budgets, optimization strategies, forecasting, chargeback model |
 | [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) | **Step-by-Step Implementation** | 12-week implementation roadmap, phased approach, pre-checklist, rollback procedures |
 
@@ -34,8 +34,8 @@ This directory contains comprehensive design documentation for the Azure Banking
   - Deployment topology
 
 #### Infrastructure as Code Templates
-- [iac/hub-vnet.tf](./iac/hub-vnet.tf)
-  - Hub VNet (10.0.0.0/16)
+- [bicep/landing-zone/hub-vnet.bicep](./bicep/landing-zone/hub-vnet.bicep)
+  - Hub VNet (10.19.0.0/16)
   - Firewall deployment
   - Bastion configuration
   - Private endpoint subnet
@@ -72,7 +72,7 @@ This directory contains comprehensive design documentation for the Azure Banking
 ### For Platform Engineers
 1. Review [NETWORK_ARCHITECTURE.md](./NETWORK_ARCHITECTURE.md) - Network Design
 2. Study [IAC_DEPLOYMENT.md](./IAC_DEPLOYMENT.md) - Infrastructure Code
-3. Use [iac/hub-vnet.tf](./iac/hub-vnet.tf) - Terraform Templates
+3. Use [bicep/landing-zone/hub-vnet.bicep](./bicep/landing-zone/hub-vnet.bicep) - Bicep Templates
 4. Follow [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) - Phase 1
 
 ### For Security/Compliance Teams
@@ -104,8 +104,7 @@ This directory contains comprehensive design documentation for the Azure Banking
 - Audit logging to LAW
 
 ### 3. Infrastructure as Code
-- Terraform for network and core infrastructure
-- Bicep for policies and applications
+- Bicep for landing zone infrastructure, policies, and applications
 - GitHub Actions for CI/CD
 - Version-controlled infrastructure
 
@@ -133,23 +132,23 @@ This directory contains comprehensive design documentation for the Azure Banking
 
 ### Key Network Ranges
 ```
-Hub VNet:              10.0.0.0/16
-├─ Firewall:          10.0.1.0/24
-├─ Bastion:           10.0.2.0/24
-├─ Gateway:           10.0.3.0/24
-├─ Private Endpoints: 10.0.4.0/24
-├─ Shared Services:   10.0.5.0/24
-└─ Management:        10.0.6.0/24
+Hub VNet:              10.19.0.0/16
+├─ Firewall:          10.19.0.0/24
+├─ Bastion:           10.19.1.0/24
+├─ Gateway:           10.19.2.0/24
+├─ Private Endpoints: 10.19.3.0/24
+├─ Shared Services:   10.19.4.0/24
+└─ Management:        10.19.5.0/24
 
-Project A Prod VNet:   10.1.0.0/16
-├─ App Tier:          10.1.1.0/24
-├─ Data Tier:         10.1.2.0/24
-└─ Integration:       10.1.3.0/24
+Project A Prod VNet:   10.19.16.0/20
+├─ App Tier:          10.19.16.0/24
+├─ Data Tier:         10.19.17.0/24
+└─ Integration:       10.19.18.0/24
 
-Project A Dev VNet:    10.2.0.0/16
+Project A Dev VNet:    10.19.32.0/20
 └─ (Subnet structure same as Prod)
 
-Project B Prod VNet:   10.3.0.0/16
+Project B Prod VNet:   10.19.48.0/20
 └─ (Subnet structure same as Prod)
 ```
 
@@ -237,7 +236,7 @@ README.md (Start here)
 │
 └── Implementation:
     └── IMPLEMENTATION_GUIDE.md
-        ├── Uses: iac/hub-vnet.tf
+        ├── Uses: bicep/landing-zone/hub-vnet.bicep
         ├── Uses: policies/banking-compliance.bicep
         └── Uses: monitoring/monitoring-setup.bicep
 ```
@@ -270,8 +269,9 @@ design/
 ├── IMPLEMENTATION_GUIDE.md                # 12-week implementation plan
 ├── diagrams/
 │   └── ARCHITECTURE_DIAGRAMS.md           # Visual architecture diagrams
-├── iac/
-│   └── hub-vnet.tf                        # Hub VNet Terraform template
+├── bicep/
+│   └── landing-zone/
+│       └── hub-vnet.bicep                 # Hub VNet Bicep template
 ├── policies/
 │   └── banking-compliance.bicep           # Banking compliance policies (Bicep)
 └── monitoring/

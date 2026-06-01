@@ -20,8 +20,7 @@ This guide provides step-by-step instructions for implementing the banking secto
 
 - [ ] Tools & Access
   - [ ] Azure Subscription(s) created
-  - [ ] Terraform/Bicep installed locally
-  - [ ] GitHub organization created
+- [ ] Bicep installed locally
   - [ ] GitHub self-hosted runner repository created
 
 - [ ] Compliance & Governance
@@ -99,17 +98,17 @@ This guide provides step-by-step instructions for implementing the banking secto
 ### Week 2: Network Foundation
 
 **Tasks:**
-1. Deploy Hub VNet with Terraform
+1. Deploy Hub VNet with Bicep
    ```bash
-   cd terraform/environments/prod
-   terraform init
-   terraform plan -out=tfplan
-   terraform apply tfplan
+   az bicep build --file bicep/landing-zone/hub-vnet.bicep
+   az deployment group create \
+     --resource-group rg-hub-prod \
+     --template-file bicep/landing-zone/hub-vnet.json
    ```
 
 2. Deploy Firewall and Bastion
-   - Already included in hub-vnet.tf
-   - Verify firewall is operational
+   - Included in `bicep/landing-zone/hub-vnet.bicep`
+   - Verify Azure Firewall and Bastion health
 
 3. Setup Private DNS Zones
    - Key Vault: privatelink.vaultcore.azure.net
@@ -120,7 +119,7 @@ This guide provides step-by-step instructions for implementing the banking secto
    - Test connectivity from Bastion to VM in app tier
 
 **Deliverables:**
-- ✓ Hub VNet (10.0.0.0/16) created
+- ✓ Hub VNet (10.19.0.0/16) created
 - ✓ Azure Firewall deployed and configured
 - ✓ Bastion host operational
 - ✓ Private DNS zones linked
@@ -333,8 +332,8 @@ This guide provides step-by-step instructions for implementing the banking secto
    - Project A Dev/Test
 
 2. Setup Project VNets
-   - Prod: 10.1.0.0/16
-   - Dev: 10.2.0.0/16
+   - Prod: 10.19.16.0/20
+   - Dev: 10.19.32.0/20
    - Configure peering to hub
 
 3. Deploy Application Resources
@@ -448,7 +447,7 @@ If issues occur during deployment:
    - Preserve logs
 
 2. **Rollback Steps**
-   - Use Terraform state to rollback
+   - Use Bicep deployment logs and resource group snapshots to rollback
    - Restore from backups if needed
    - Verify data integrity
 

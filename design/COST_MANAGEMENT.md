@@ -159,15 +159,17 @@ Savings Potential:
 ### 3. Spot VMs for Non-Critical Workloads
 
 **Dev/Test Environment Optimization:**
-```hcl
-# Terraform configuration
-resource "azurerm_virtual_machine" "dev_spot" {
-  name                = "vm-dev-spot-001"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
-  vm_size             = "Standard_D4s_v3"
-
-  priority = "Spot"
+```bicep
+resource devSpotVm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
+  name: 'vm-dev-spot-001'
+  location: location
+  properties: {
+    hardwareProfile: {
+      vmSize: 'Standard_D4s_v3'
+    }
+    priority: 'Spot'
+  }
+}
   eviction_policy = "Deallocate"
   max_bid_price = 0.50  // Pay-as-you-go price
 

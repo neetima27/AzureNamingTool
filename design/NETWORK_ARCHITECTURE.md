@@ -2,44 +2,44 @@
 
 ## VNet and Subnet Design
 
-### Hub VNet Configuration (10.0.0.0/16)
+### Hub VNet Configuration (10.19.0.0/16)
 
 ```
-10.0.0.0/16 - Hub VNet (South Africa North)
-├── 10.0.1.0/24 - Azure Firewall Subnet (Required)
-├── 10.0.2.0/24 - Azure Bastion Subnet (Required)
-├── 10.0.3.0/24 - VPN/ExpressRoute Gateway Subnet
-├── 10.0.4.0/24 - Private Endpoints Subnet
-├── 10.0.5.0/24 - Shared Services Subnet (ACR, KV, etc.)
-└── 10.0.6.0/24 - Management Tools Subnet (Self-hosted Runner)
+10.19.0.0/16 - Hub VNet (South Africa North)
+├── 10.19.0.0/24 - Azure Firewall Subnet (Required)
+├── 10.19.1.0/24 - Azure Bastion Subnet (Required)
+├── 10.19.2.0/24 - VPN/ExpressRoute Gateway Subnet
+├── 10.19.3.0/24 - Private Endpoints Subnet
+├── 10.19.4.0/24 - Shared Services Subnet (ACR, KV, etc.)
+└── 10.19.5.0/24 - Management Tools Subnet (Self-hosted Runner)
 ```
 
 ### Spoke VNet Design
 
-**Project A - Production (10.1.0.0/16)**
+**Project A - Production (10.19.16.0/20)**
 ```
-10.1.0.0/16 - Project A Production
-├── 10.1.1.0/24 - Application Tier (App Service, AKS, etc.)
-├── 10.1.2.0/24 - Data Tier (SQL, Cosmos DB with Private Endpoints)
-├── 10.1.3.0/24 - Integration Tier (Service Bus, Event Hub)
-└── 10.1.4.0/24 - Reserved for Expansion
-```
-
-**Project A - Development (10.2.0.0/16)**
-```
-10.2.0.0/16 - Project A Development
-├── 10.2.1.0/24 - Application Tier
-├── 10.2.2.0/24 - Data Tier
-├── 10.2.3.0/24 - Integration Tier
-└── 10.2.4.0/24 - Reserved for Expansion
+10.19.16.0/20 - Project A Production
+├── 10.19.16.0/24 - Application Tier (App Service, AKS, etc.)
+├── 10.19.17.0/24 - Data Tier (SQL, Cosmos DB with Private Endpoints)
+├── 10.19.18.0/24 - Integration Tier (Service Bus, Event Hub)
+└── 10.19.19.0/24 - Reserved for Expansion
 ```
 
-**Project B - Production (10.3.0.0/16)**
+**Project A - Development (10.19.32.0/20)**
 ```
-10.3.0.0/16 - Project B Production
-├── 10.3.1.0/24 - Application Tier
-├── 10.3.2.0/24 - Data Tier
-└── 10.3.3.0/24 - Reserved for Expansion
+10.19.32.0/20 - Project A Development
+├── 10.19.32.0/24 - Application Tier
+├── 10.19.33.0/24 - Data Tier
+├── 10.19.34.0/24 - Integration Tier
+└── 10.19.35.0/24 - Reserved for Expansion
+```
+
+**Project B - Production (10.19.48.0/20)**
+```
+10.19.48.0/20 - Project B Production
+├── 10.19.48.0/24 - Application Tier
+├── 10.19.49.0/24 - Data Tier
+└── 10.19.50.0/24 - Reserved for Expansion
 ```
 
 ## Routing Architecture
@@ -81,8 +81,8 @@ Destination         Next Hop              Purpose
 
 | Priority | Name | Source | Dest | Port | Action | Notes |
 |----------|------|--------|------|------|--------|-------|
-| 100 | AllowBastion | 10.0.2.0/24 | * | 22,3389 | Allow | SSH/RDP from Bastion |
-| 110 | AllowVNetPeering | 10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16 | * | * | Allow | Internal VNet communication |
+| 100 | AllowBastion | 10.19.1.0/24 | * | 22,3389 | Allow | SSH/RDP from Bastion |
+| 110 | AllowVNetPeering | 10.19.16.0/20, 10.19.32.0/20, 10.19.48.0/20 | * | * | Allow | Internal VNet communication |
 | 120 | AllowDiagnostics | * | 168.63.129.16/32 | 443 | Allow | Azure diagnostics |
 | 200 | DenyAll | * | * | * | Deny | Default deny |
 
@@ -91,8 +91,8 @@ Destination         Next Hop              Purpose
 | Priority | Name | Source | Dest Port | Action | Notes |
 |----------|------|--------|-----------|--------|-------|
 | 100 | AllowHTTPS | Internet | 443 | Allow | Public HTTPS (if applicable) |
-| 110 | AllowFromBastion | 10.0.2.0/24 | 22,3389 | Allow | Bastion management |
-| 120 | AllowFromFirewall | 10.0.1.0/24 | * | Allow | Traffic from FW |
+| 110 | AllowFromBastion | 10.19.1.0/24 | 22,3389 | Allow | Bastion management |
+| 120 | AllowFromFirewall | 10.19.0.0/24 | * | Allow | Traffic from FW |
 | 130 | AllowToDatabase | * | 1433 | Allow | To data tier |
 | 200 | DenyAll | * | * | Deny | Default deny |
 
@@ -101,8 +101,8 @@ Destination         Next Hop              Purpose
 | Priority | Name | Source | Dest Port | Action | Notes |
 |----------|------|--------|-----------|--------|-------|
 | 100 | AllowFromAppTier | 10.x.1.0/24 | 1433 | Allow | Database access |
-| 110 | AllowFromBastion | 10.0.2.0/24 | 1433,3306 | Allow | Management access |
-| 120 | AllowPrivateEndpoints | 10.0.4.0/24 | * | Allow | Private endpoints |
+| 110 | AllowFromBastion | 10.19.1.0/24 | 1433,3306 | Allow | Management access |
+| 120 | AllowPrivateEndpoints | 10.19.3.0/24 | * | Allow | Private endpoints |
 | 200 | DenyAll | * | * | Deny | Default deny |
 
 ## Azure Firewall Configuration
@@ -160,11 +160,11 @@ Use Remote Gateways: Yes (if hub has gateway)
 ### Traffic Flow Example
 
 ```
-Developer VM in 10.1.1.0/24 (Project A Prod App Tier)
+Developer VM in 10.19.16.0/24 (Project A Prod App Tier)
 ↓
 NSG check → Allow from Firewall
 ↓
-UDR: 0.0.0.0/0 → Azure Firewall (10.0.1.1)
+UDR: 0.0.0.0/0 → Azure Firewall (10.19.0.1)
 ↓
 Firewall Application Rules check
 ↓
@@ -189,7 +189,7 @@ From Hub to Spoke or Internet based on rules
 
 **For each PaaS service requiring private access:**
 
-1. Create Private Endpoint in private endpoint subnet (10.0.4.0/24)
+1. Create Private Endpoint in private endpoint subnet (10.19.3.0/24)
 2. Disable public access on the PaaS service
 3. Create DNS A record in Private DNS Zone pointing to Private Endpoint IP
 4. NSGs allow traffic only from authorized subnets
@@ -197,13 +197,13 @@ From Hub to Spoke or Internet based on rules
 **Example: SQL Database Private Endpoint**
 ```
 Private Endpoint Name: pe-sqldb-projecta
-Subnet: 10.0.4.0/24 (Private Endpoints)
+Subnet: 10.19.3.0/24 (Private Endpoints)
 Service: Microsoft.Sql/servers
 Resource: projecta-sql-db-001
 Subresource: sqlServer
-Private IP: 10.0.4.5
+Private IP: 10.19.3.5
 DNS Zone: privatelink.database.windows.net
-DNS Record: projecta-sql-db-001.database.windows.net → 10.0.4.5
+DNS Record: projecta-sql-db-001.database.windows.net → 10.19.3.5
 ```
 
 ## ExpressRoute / VPN Gateway (Optional)
@@ -214,11 +214,11 @@ If on-premises connectivity is needed:
 On-Premises Network (192.168.0.0/16)
 ↓ (ExpressRoute or Site-to-Site VPN)
 ↓
-VPN Gateway in Hub (10.0.3.0/24)
+VPN Gateway in Hub (10.19.2.0/24)
 ↓
-Firewall (10.0.1.0/24)
+Firewall (10.19.0.0/24)
 ↓
-Spoke VNets (10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16)
+Spoke VNets (10.19.16.0/20, 10.19.32.0/20, 10.19.48.0/20)
 ```
 
 ---
@@ -250,7 +250,7 @@ Spoke VNets (10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16)
 nslookup projecta-sql-db-001.database.windows.net
 
 # Test connectivity
-Test-NetConnection -ComputerName 10.1.2.10 -Port 1433
+Test-NetConnection -ComputerName 10.19.17.10 -Port 1433
 
 # Check route table
 route print

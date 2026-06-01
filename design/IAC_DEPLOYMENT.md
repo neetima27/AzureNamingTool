@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides the complete CI/CD and Infrastructure-as-Code strategy for the banking sector landing zone using Terraform, Bicep, and GitHub Actions.
+This document provides the complete CI/CD and Infrastructure-as-Code strategy for the banking sector landing zone using Azure-native Bicep and GitHub Actions.
 
 ## IaC Strategy
 
@@ -12,28 +12,20 @@ This document provides the complete CI/CD and Infrastructure-as-Code strategy fo
 graph LR
     IaC["Infrastructure as Code"]
     
-    IaC --> TERRAFORM["Terraform<br/>Multi-cloud, State management<br/>For core infrastructure"]
-    IaC --> BICEP["Bicep<br/>Azure-native, Concise<br/>For ARM deployments"]
+    IaC --> BICEP["Bicep<br/>Azure-native<br/>Infrastructure as Code"]
     
-    TERRAFORM -->|Manages| NETWORK["Networking<br/>VNets, NSGs, Firewall"]
-    TERRAFORM -->|Manages| IDENTITY["Identity & Access<br/>RBAC, Managed Identities"]
-    TERRAFORM -->|Manages| MONITORING["Monitoring Stack<br/>LAW, Alerts"]
-    
+    BICEP -->|Manages| NETWORK["Networking<br/>VNets, NSGs, Firewall"]
+    BICEP -->|Manages| IDENTITY["Identity & Access<br/>RBAC, Managed Identities"]
+    BICEP -->|Manages| MONITORING["Monitoring Stack<br/>LAW, Alerts"]
     BICEP -->|Manages| POLICIES["Policy Definitions<br/>Azure Policy Assignments"]
     BICEP -->|Manages| APPRESOURCES["Application Resources<br/>SQL, App Service, etc"]
 ```
 
-**Why Terraform for core infrastructure?**
-- State management and drift detection
-- Team collaboration
-- Multi-environment support
-- Consistent workflow across cloud providers
-
-**Why Bicep for policies and applications?**
-- Native Azure integration
-- Simpler syntax than JSON ARM templates
-- Built-in policy support
-- Direct Azure Resource Manager integration
+**Why Bicep for this landing zone?**
+- Azure-native declarative syntax with ARM compatibility
+- Cleaner and more maintainable than raw ARM JSON
+- Built-in support for Azure Policy and nested deployments
+- Ideal for stage-based landing zone deployment across management groups, connectivity, and project subscriptions
 
 ## Repository Structure
 
@@ -46,37 +38,21 @@ banking-infrastructure/
 │   │   ├── plan-infrastructure.yml
 │   │   └── deploy-infrastructure.yml
 │   └── CODEOWNERS
-├── terraform/
-│   ├── environments/
-│   │   ├── dev/
-│   │   │   ├── terraform.tfvars
-│   │   │   └── backend.tf
-│   │   ├── staging/
-│   │   │   ├── terraform.tfvars
-│   │   │   └── backend.tf
-│   │   └── prod/
-│   │       ├── terraform.tfvars
-│   │       └── backend.tf
-│   ├── modules/
-│   │   ├── networking/
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   ├── outputs.tf
-│   │   │   └── locals.tf
-│   │   ├── security/
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   ├── monitoring/
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   └── identity/
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       └── outputs.tf
-│   └── main.tf
 ├── bicep/
+│   ├── landing-zone/
+│   │   ├── hub-vnet.bicep
+│   │   ├── management-groups.bicep
+│   │   ├── connectivity.bicep
+│   │   └── project-spoke.bicep
+│   ├── policies/
+│   │   ├── banking-compliance.bicep
+│   │   ├── security-hardening.bicep
+│   │   └── operational-excellence.bicep
+│   ├── applications/
+│   │   ├── sql-database.bicep
+│   │   ├── app-service.bicep
+│   │   └── cosmos-db.bicep
+│   └── modules/
 │   ├── policies/
 │   │   ├── banking-compliance.bicep
 │   │   ├── security-hardening.bicep
@@ -98,75 +74,39 @@ banking-infrastructure/
     └── deploy.sh
 ```
 
-## Terraform Core Modules
+## Bicep Landing Zone Modules
 
 ### Module 1: Networking
 
-**Path**: `terraform/modules/networking/`
+**Path**: `bicep/landing-zone/hub-vnet.bicep`
 
 **Resources Created:**
-- Virtual Networks (Hub and Spokes)
-- Network Security Groups
-- Route Tables
-- Virtual Network Peering
-- Azure Firewall
-- Private DNS Zones
+- Hub Virtual Network with 10.19.0.0/16 address space
+- Firewall subnet, Bastion subnet, Gateway subnet
+- Private Endpoints subnet
+- Shared Services subnet
+- Management subnet
+- Azure Firewall and Azure Bastion
+- Private DNS zones and VNet link
 
 **Module Inputs:**
-```hcl
-variable "environment" {
-  type = string
-  description = "Environment name (dev, staging, prod)"
-}
-
-variable "location" {
-  type = string
-  description = "Azure region"
-  default = "southafricanorth"
-}
-
-variable "organization_name" {
-  type = string
-  description = "Organization name"
-}
-
-variable "hub_vnet_cidr" {
-  type = string
-  description = "Hub VNet CIDR block"
-  default = "10.0.0.0/16"
-}
-
-variable "spoke_vnets" {
-  type = map(object({
-    cidr = string
-    subnets = map(string)
-  }))
-  description = "Spoke VNet configurations"
-}
+```bicep
+param location string = 'southafricanorth'
+param environment string
+param organizationName string
 ```
 
 **Module Outputs:**
-```hcl
-output "hub_vnet_id" {
-  value = azurerm_virtual_network.hub.id
-}
-
-output "hub_firewall_ip" {
-  value = azurerm_firewall.hub.ip_configuration[0].private_ip_address
-}
-
-output "spoke_vnet_ids" {
-  value = { for k, v in azurerm_virtual_network.spokes : k => v.id }
-}
-
-output "private_dns_zone_ids" {
-  value = { for k, v in azurerm_private_dns_zone.zones : k => v.id }
-}
+```bicep
+output hubVnetId string = hubVnet.id
+output firewallPrivateIp string = firewall.properties.ipConfigurations[0].properties.privateIPAddress
+output privateEndpointsSubnetId string = privateEndpointsSubnet.id
+output keyVaultDnsZoneId string = keyVaultDnsZone.id
 ```
 
 ### Module 2: Security & Identity
 
-**Path**: `terraform/modules/security/`
+**Path**: `bicep/modules/security/`
 
 **Resources Created:**
 - Azure Key Vault (with Private Endpoint)
@@ -232,7 +172,7 @@ resource "azurerm_private_endpoint" "keyvault" {
 
 ### Module 3: Monitoring & Logging
 
-**Path**: `terraform/modules/monitoring/`
+**Path**: `bicep/modules/monitoring/`
 
 **Resources Created:**
 - Log Analytics Workspace
@@ -294,50 +234,40 @@ name: Validate Infrastructure
 on:
   pull_request:
     paths:
-      - 'terraform/**'
       - 'bicep/**'
       - '.github/workflows/validate-infrastructure.yml'
 
 jobs:
-  terraform-validate:
+  bicep-validate:
     runs-on: [self-hosted, private-network]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      - name: Azure Login
+        uses: azure/login@v1
         with:
-          terraform_version: 1.5.0
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive terraform/
-
-      - name: Terraform Validate
+      - name: Validate Bicep Files
         run: |
-          for env in terraform/environments/*/; do
-            terraform -chdir=$env init -backend=false
-            terraform -chdir=$env validate
-          done
+          az bicep build --file bicep/landing-zone/hub-vnet.bicep
+          az bicep build --file bicep/policies/banking-compliance.bicep
+          az bicep build --file bicep/landing-zone/project-spoke.bicep
 
-      - name: Checkov Security Scan
-        uses: bridgecrewio/checkov-action@master
+      - name: Comment PR with Results
+        if: failure()
+        uses: actions/github-script@v7
         with:
-          directory: terraform/
-          framework: terraform
-          quiet: false
-          soft_fail: true
-          output_format: sarif
-          output_file_path: reports/checkov.sarif
-
-      - name: TFLint Analysis
-        run: |
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-          tflint --init
-          tflint terraform/
-
-      - name: Bicep Validate
-        run: az bicep build --file bicep/policies/banking-compliance.bicep
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Infrastructure validation failed. Check logs for details.'
+            })
 
       - name: Comment PR with Results
         if: failure()
@@ -362,11 +292,9 @@ name: Plan Infrastructure
 on:
   pull_request:
     paths:
-      - 'terraform/**'
       - 'bicep/**'
 
 env:
-  TF_VERSION: 1.5.0
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -377,15 +305,11 @@ jobs:
     runs-on: [self-hosted, private-network]
     strategy:
       matrix:
+        stage: [management, connectivity, project]
         environment: [dev, staging]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Azure Login
         uses: azure/login@v1
@@ -394,34 +318,42 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Terraform Init
+      - name: Build Bicep
         run: |
-          cd terraform/environments/${{ matrix.environment }}
-          terraform init
+          if [ "${{ matrix.stage }}" = "management" ]; then
+            az bicep build --file bicep/landing-zone/management-groups.bicep
+          elif [ "${{ matrix.stage }}" = "connectivity" ]; then
+            az bicep build --file bicep/landing-zone/hub-vnet.bicep
+          else
+            az bicep build --file bicep/landing-zone/project-spoke.bicep
+          fi
 
-      - name: Terraform Plan
+      - name: Deployment What-If
         run: |
-          cd terraform/environments/${{ matrix.environment }}
-          terraform plan -out=tfplan -lock=true
+          if [ "${{ matrix.stage }}" = "management" ]; then
+            az deployment sub what-if --location southafricanorth --template-file bicep/landing-zone/management-groups.json
+          elif [ "${{ matrix.stage }}" = "connectivity" ]; then
+            az deployment group what-if --resource-group rg-hub-${{ matrix.environment }} --template-file bicep/landing-zone/hub-vnet.json
+          else
+            az deployment group what-if --resource-group rg-project-${{ matrix.environment }} --template-file bicep/landing-zone/project-spoke.json
+          fi
 
-      - name: Upload Plan
+      - name: Upload What-If Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: tfplan-${{ matrix.environment }}
-          path: terraform/environments/${{ matrix.environment }}/tfplan
+          name: whatif-${{ matrix.stage }}-${{ matrix.environment }}
+          path: '*.json'
           retention-days: 7
 
-      - name: Comment PR with Plan Summary
+      - name: Comment PR with What-If Summary
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const plan = fs.readFileSync('terraform/environments/${{ matrix.environment }}/tfplan.txt', 'utf8');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## Terraform Plan - ${{ matrix.environment }}\n\`\`\`\n${plan}\n\`\`\``
+              body: `## Bicep What-If - ${{ matrix.stage }} / ${{ matrix.environment }}\nArtifacts uploaded.`
             })
 ```
 
@@ -437,7 +369,6 @@ on:
     branches:
       - main
     paths:
-      - 'terraform/**'
       - 'bicep/**'
 
 env:
@@ -447,20 +378,12 @@ env:
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
 jobs:
-  deploy:
+  deploy-management:
     runs-on: [self-hosted, private-network]
     environment: production
-    strategy:
-      matrix:
-        environment: [prod]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.0
 
       - name: Azure Login
         uses: azure/login@v1
@@ -469,25 +392,62 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Terraform Init
+      - name: Deploy Management Groups
         run: |
-          cd terraform/environments/${{ matrix.environment }}
-          terraform init
+          az deployment sub create \
+            --location southafricanorth \
+            --template-file bicep/landing-zone/management-groups.json
 
-      - name: Terraform Apply
-        run: |
-          cd terraform/environments/${{ matrix.environment }}
-          terraform apply -auto-approve
+  deploy-connectivity:
+    needs: deploy-management
+    runs-on: [self-hosted, private-network]
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Create Deployment Record
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Hub Connectivity
         run: |
           az deployment group create \
-            --name "deployment-$(date +%s)" \
-            --resource-group "rg-banking-prod" \
-            --template-file bicep/main.bicep
+            --resource-group rg-hub-prod \
+            --template-file bicep/landing-zone/hub-vnet.json
 
-      - name: Notify Deployment Success
-        if: success()
+  deploy-projects:
+    needs: deploy-connectivity
+    runs-on: [self-hosted, private-network]
+    environment: production
+    strategy:
+      matrix:
+        project: [project-a, project-b]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Project Spokes
+        run: |
+          az deployment group create \
+            --resource-group rg-${{ matrix.project }}-prod \
+            --template-file bicep/landing-zone/project-spoke.json
+
+  notify:
+    needs: [deploy-management, deploy-connectivity, deploy-projects]
+    runs-on: [self-hosted, private-network]
+    steps:
+      - name: Notify Deployment Result
         uses: actions/github-script@v7
         with:
           script: |
@@ -495,19 +455,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '✅ Infrastructure deployment completed successfully.'
-            })
-
-      - name: Notify Deployment Failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ Infrastructure deployment failed.'
+              body: '✅ Bicep landing zone deployment pipeline completed successfully.'
             })
 ```
 
@@ -526,11 +474,6 @@ sudo apt-get install -y \
   jq \
   python3-pip \
   unzip
-
-# Install Terraform
-wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
-unzip terraform_1.5.0_linux_amd64.zip
-sudo mv terraform /usr/local/bin/
 
 # Install Azure CLI
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash

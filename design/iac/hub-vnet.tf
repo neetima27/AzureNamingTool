@@ -1,5 +1,6 @@
 # Hub VNet with Azure Firewall
-
+# LEGACY: This Terraform template remains for reference only.
+# The current landing zone implementation is Bicep-only and uses bicep/landing-zone/hub-vnet.bicep.
 terraform {
   required_providers {
     azurerm = {
@@ -30,7 +31,7 @@ locals {
     Environment = var.environment
     Project     = "Platform"
     Owner       = "platform-team@banking.com"
-    ManagedBy   = "Terraform"
+    ManagedBy   = "Terraform-Legacy"
   }
 }
 
@@ -44,7 +45,7 @@ resource "azurerm_resource_group" "hub" {
 # Hub VNet
 resource "azurerm_virtual_network" "hub" {
   name                = "vnet-hub-${var.environment}"
-  address_space       = ["10.0.0.0/16"]
+  address_space       = ["10.19.0.0/16"]
   location            = var.location
   resource_group_name = azurerm_resource_group.hub.name
   tags                = local.common_tags
@@ -55,7 +56,7 @@ resource "azurerm_subnet" "firewall" {
   name                 = "AzureFirewallSubnet"
   resource_group_name  = azurerm_resource_group.hub.name
   virtual_network_name = azurerm_virtual_network.hub.name
-  address_prefixes     = ["10.0.1.0/24"]
+  address_prefixes     = ["10.19.0.0/24"]
 }
 
 # Bastion Subnet
@@ -63,7 +64,7 @@ resource "azurerm_subnet" "bastion" {
   name                 = "AzureBastionSubnet"
   resource_group_name  = azurerm_resource_group.hub.name
   virtual_network_name = azurerm_virtual_network.hub.name
-  address_prefixes     = ["10.0.2.0/24"]
+  address_prefixes     = ["10.19.1.0/24"]
 }
 
 # Gateway Subnet
@@ -71,7 +72,7 @@ resource "azurerm_subnet" "gateway" {
   name                 = "GatewaySubnet"
   resource_group_name  = azurerm_resource_group.hub.name
   virtual_network_name = azurerm_virtual_network.hub.name
-  address_prefixes     = ["10.0.3.0/24"]
+  address_prefixes     = ["10.19.2.0/24"]
 }
 
 # Private Endpoints Subnet
@@ -79,7 +80,7 @@ resource "azurerm_subnet" "private_endpoints" {
   name                 = "snet-private-endpoints"
   resource_group_name  = azurerm_resource_group.hub.name
   virtual_network_name = azurerm_virtual_network.hub.name
-  address_prefixes     = ["10.0.4.0/24"]
+  address_prefixes     = ["10.19.3.0/24"]
 
   private_endpoint_network_policies_enabled = true
 }

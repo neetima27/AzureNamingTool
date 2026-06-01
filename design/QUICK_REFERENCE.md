@@ -17,15 +17,15 @@
 Organization
 ├── Management Subscriptions (Policies, Identity, Audit)
 ├── Shared Services (Hub VNet, Firewall, Monitoring)
-│   └── Hub VNet (10.0.0.0/16)
+│   └── Hub VNet (10.19.0.0/16)
 │       ├── Azure Firewall (L3-L7 filtering)
 │       ├── Bastion Host (secure access)
-│       └── Private Endpoints (10.0.4.0/24)
+│       └── Private Endpoints (10.19.3.0/24)
 ├── Project A (App 1, App 2, Database)
-│   ├── Prod VNet (10.1.0.0/16)
-│   └── Dev VNet (10.2.0.0/16)
+│   ├── Prod VNet (10.19.16.0/20)
+│   └── Dev VNet (10.19.32.0/20)
 └── Project B (App 3, App 4, Database)
-    └── Prod VNet (10.3.0.0/16)
+    └── Prod VNet (10.19.48.0/20)
 ```
 
 ---
@@ -52,7 +52,7 @@ Organization
 - [ ] Azure Policies deployed
 - [ ] GitHub Actions workflows created
 - [ ] Self-hosted runner deployed
-- [ ] Terraform/Bicep templates validated
+- [ ] Bicep templates validated
 - [ ] CI/CD pipeline tested
 
 ### Week 9-10: Project Onboarding
@@ -79,7 +79,7 @@ Organization
 → [README.md](./README.md) → [Architecture Diagrams](./diagrams/ARCHITECTURE_DIAGRAMS.md)
 
 #### Deploy Network Infrastructure
-→ [NETWORK_ARCHITECTURE.md](./NETWORK_ARCHITECTURE.md) → [hub-vnet.tf](./iac/hub-vnet.tf)
+→ [NETWORK_ARCHITECTURE.md](./NETWORK_ARCHITECTURE.md) → [hub-vnet.bicep](./bicep/landing-zone/hub-vnet.bicep)
 
 #### Set Up Policies
 → [GOVERNANCE_POLICIES.md](./GOVERNANCE_POLICIES.md) → [banking-compliance.bicep](./policies/banking-compliance.bicep)
@@ -105,7 +105,7 @@ Organization
 | **Network Model** | Hub-and-Spoke | Scalability, centralized control, cost efficiency |
 | **Security** | Private Endpoints | Zero-trust, prevent public exposure |
 | **Governance** | Centralized via Policies | Consistent enforcement, compliance |
-| **IaC Tool** | Terraform + Bicep | Best of both worlds - multi-cloud + Azure-native |
+| **IaC Tool** | Bicep | Azure-native infrastructure as code |
 | **Deployment** | GitHub Actions | Version control, automation, audit trail |
 | **Monitoring** | Azure-native (LAW, AI) | Integrated, no vendor lock-in, cost-effective |
 | **Region** | South Africa North only | Data residency, compliance |
@@ -135,28 +135,19 @@ az deployment group create \
 az policy state list --resource-group rg-example
 ```
 
-### Terraform Commands
+### Bicep Commands
 ```bash
-# Initialize Terraform
-terraform init
+# Build Bicep template
+az bicep build --file bicep/landing-zone/hub-vnet.bicep
 
-# Format code
-terraform fmt -recursive .
+# Deploy landing zone
+az deployment group create --resource-group rg-hub-prod --template-file bicep/landing-zone/hub-vnet.json
 
-# Validate syntax
-terraform validate
+# Deploy management groups
+az deployment sub create --location southafricanorth --template-file bicep/landing-zone/management-groups.json
 
-# Plan changes
-terraform plan -out=tfplan
-
-# Apply changes
-terraform apply tfplan
-
-# Show current state
-terraform show
-
-# Destroy resources
-terraform destroy
+# Validate Bicep
+az bicep build --stdout --file bicep/policies/banking-compliance.bicep
 ```
 
 ### GitHub Commands
@@ -282,7 +273,7 @@ Required on every resource:
 - Alerts not firing? → Check alert rule criteria, action group config
 
 ### Deployment Issues
-- Terraform apply fails? → Check provider auth, state lock
+- Bicep deployment fails? → Check Azure credentials, template validation
 - GitHub Actions stuck? → Check runner status, secrets
 
 ---

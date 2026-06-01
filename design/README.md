@@ -10,7 +10,7 @@ This document provides a comprehensive design for an Azure landing zone tailored
 - **Security**: Private endpoints, network isolation, and zero-trust principles
 - **Governance**: Policy-as-Code and centralized governance
 - **Operations**: Azure-native tools with monitoring-as-code
-- **Deployment**: GitHub-based CI/CD with Infrastructure-as-Code (Terraform/Bicep)
+- **Deployment**: GitHub-based CI/CD with Azure-native Bicep
 - **Compliance**: Banking sector requirements with audit trails
 
 ## Table of Contents
@@ -165,11 +165,11 @@ Root (Banking Organization)
 ```mermaid
 graph TB
     subgraph "South Africa North Region"
-        subgraph "Hub VNet (10.0.0.0/16)"
-            FWSUB["Firewall Subnet<br/>10.0.1.0/24"]
-            BASTSUB["Bastion Subnet<br/>10.0.2.0/24"]
-            GATEWAY["Gateway Subnet<br/>10.0.3.0/24"]
-            PRVEND["Private Endpoint Subnet<br/>10.0.4.0/24"]
+        subgraph "Hub VNet (10.19.0.0/16)"
+            FWSUB["Firewall Subnet<br/>10.19.0.0/24"]
+            BASTSUB["Bastion Subnet<br/>10.19.1.0/24"]
+            GATEWAY["Gateway Subnet<br/>10.19.2.0/24"]
+            PRVEND["Private Endpoint Subnet<br/>10.19.3.0/24"]
             
             FW["Azure Firewall"]
             BASTION["Bastion Host"]
@@ -181,20 +181,20 @@ graph TB
         end
         
         subgraph "Spoke VNets"
-            subgraph "Project A - Prod VNet<br/>10.1.0.0/16"
-                APPSUBPROD["App Subnet<br/>10.1.1.0/24"]
-                DBSUBPROD["Data Subnet<br/>10.1.2.0/24"]
-                INTEGSUBPROD["Integration Subnet<br/>10.1.3.0/24"]
+            subgraph "Project A - Prod VNet<br/>10.19.16.0/20"
+                APPSUBPROD["App Subnet<br/>10.19.16.0/24"]
+                DBSUBPROD["Data Subnet<br/>10.19.17.0/24"]
+                INTEGSUBPROD["Integration Subnet<br/>10.19.18.0/24"]
             end
             
-            subgraph "Project A - Dev VNet<br/>10.2.0.0/16"
-                APPSUBDEV["App Subnet<br/>10.2.1.0/24"]
-                DBSUBDEV["Data Subnet<br/>10.2.2.0/24"]
+            subgraph "Project A - Dev VNet<br/>10.19.32.0/20"
+                APPSUBDEV["App Subnet<br/>10.19.32.0/24"]
+                DBSUBDEV["Data Subnet<br/>10.19.33.0/24"]
             end
             
-            subgraph "Project B - Prod VNet<br/>10.3.0.0/16"
-                APPSUBPROD2["App Subnet<br/>10.3.1.0/24"]
-                DBSUBPROD2["Data Subnet<br/>10.3.2.0/24"]
+            subgraph "Project B - Prod VNet<br/>10.19.48.0/20"
+                APPSUBPROD2["App Subnet<br/>10.19.48.0/24"]
+                DBSUBPROD2["Data Subnet<br/>10.19.49.0/24"]
             end
         end
         
@@ -343,23 +343,27 @@ graph LR
     DEV["Developer"]
     REPO["GitHub Repository<br/>Main Branch"]
     PR["Pull Request<br/>Code Review"]
-    PLAN["Terraform Plan<br/>Self-Hosted Runner"]
+    PLAN["Bicep Build & What-If<br/>Self-Hosted Runner"]
     
     subgraph "Self-Hosted Runner<br/>on Private VM"
         RUNNER["Runner Agent<br/>In Hub VNet"]
     end
     
-    APPLY["Terraform Apply<br/>Self-Hosted Runner"]
+    CONNECT["Connectivity Stage<br/>Hub + Firewall + Bastion"]
+    PROJECT["Project Deployment Stage<br/>Spoke Subscriptions"]
     AZURE["Azure Subscription<br/>via Managed Identity"]
     
     DEV -->|Push Feature Branch| REPO
     REPO -->|PR Created| PR
     PR -->|Trigger| PLAN
     PLAN -->|In Private Network| RUNNER
-    RUNNER -->|Uses| AZURE
-    PLAN -->|Approval| APPLY
-    APPLY -->|Deploy Resources| AZURE
-    APPLY -->|Merge| REPO
+    RUNNER -->|Runs Deployment Stages| CONNECT
+    CONNECT -->|Deploy Projects| PROJECT
+    PROJECT -->|Deploy Resources| AZURE
+    AZURE -->|Notify| REPO
+    style PLAN fill:#ffcc99
+    style CONNECT fill:#99ccff
+    style PROJECT fill:#99ff99
 ```
 
 ### GitHub Actions Self-Hosted Runner Configuration
@@ -384,19 +388,18 @@ name: Deploy Infrastructure
 on:
   pull_request:
     paths:
-      - 'infrastructure/**'
+      - 'bicep/**'
   push:
     branches:
       - main
     paths:
-      - 'infrastructure/**'
+      - 'bicep/**'
 
 env:
-  TERRAFORM_VERSION: 1.5.0
   AZURE_REGION: southafricanorth
 
 jobs:
-  plan:
+  deploy-management:
     runs-on: [self-hosted, private-network]
     steps:
       - uses: actions/checkout@v3
@@ -408,25 +411,12 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           
-      - name: Terraform Init
-        run: terraform init
-        working-directory: infrastructure
-        
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        working-directory: infrastructure
-        
-      - name: Upload Plan
-        uses: actions/upload-artifact@v3
-        with:
-          name: tfplan
-          path: infrastructure/tfplan
+      - name: Deploy Management Groups
+        run: az deployment sub create --location southafricanorth --template-file bicep/landing-zone/management-groups.json
 
-  apply:
-    if: github.ref == 'refs/heads/main'
-    needs: plan
+  deploy-connectivity:
+    needs: deploy-management
     runs-on: [self-hosted, private-network]
-    environment: production
     steps:
       - uses: actions/checkout@v3
       
@@ -437,15 +427,27 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           
-      - name: Download Plan
-        uses: actions/download-artifact@v3
+      - name: Deploy Hub Connectivity
+        run: az deployment group create --resource-group rg-hub-prod --template-file bicep/landing-zone/hub-vnet.json
+
+  deploy-projects:
+    needs: deploy-connectivity
+    runs-on: [self-hosted, private-network]
+    strategy:
+      matrix:
+        project: [project-a, project-b]
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Azure Login
+        uses: azure/login@v1
         with:
-          name: tfplan
-          path: infrastructure
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure
+      - name: Deploy Project Spokes
+        run: az deployment group create --resource-group rg-${{ matrix.project }}-prod --template-file bicep/landing-zone/project-spoke.json
 ```
 
 ---
@@ -616,7 +618,7 @@ graph TB
 ### Phase 3: Operational Excellence (Months 3-4)
 - [ ] Deploy self-hosted GitHub runner
 - [ ] Implement Infrastructure-as-Code templates
-- [ ] Set up monitoring-as-code (Terraform)
+- [ ] Set up monitoring-as-code (Bicep)
 - [ ] Create deployment pipelines
 - [ ] Implement cost management
 

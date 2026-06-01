@@ -13,17 +13,19 @@ graph TB
         end
         
         subgraph "Shared Services (Connectivity Subscription)"
-            HUB["Hub VNet<br/>10.0.0.0/16"]
-            FW["Azure Firewall<br/>L3-L7 Filtering"]
-            BASTION["Bastion Host<br/>Secure Access"]
+            HUB["☁️ Hub VNet<br/>10.19.0.0/16"]
+            FW["🛡️ Azure Firewall<br/>L3-L7 Filtering"]
+            BASTION["🔐 Bastion Host<br/>Secure Access"]
             FW ---|Controls Traffic| HUB
             HUB --> BASTION
             
             subgraph "Shared Infrastructure"
-                ACR["Container Registry<br/>Private Endpoint"]
-                KV["Key Vault<br/>Secret Management"]
-                PE["Private Endpoints<br/>Subnet 10.0.4.0/24"]
+                ACR["📦 Container Registry<br/>Private Endpoint"]
+                KV["🔑 Key Vault<br/>Secret Management"]
+                PE["🔒 Private Endpoints<br/>Subnet 10.19.3.0/24"]
             end
+            classDef azure fill:#0078D4,stroke:#004E8C,color:#ffffff;
+            class HUB,FW,BASTION,ACR,KV,PE azure;
             
             HUB --> ACR
             HUB --> KV
@@ -42,7 +44,7 @@ graph TB
         end
         
         subgraph "Project A"
-            subgraph "Prod (10.1.0.0/16)"
+            subgraph "Prod (10.19.16.0/20)"
                 APP1["App 1<br/>Private Endpoint"]
                 APP2["App 2<br/>Private Endpoint"]
                 DB1["SQL Database<br/>TDE Encryption"]
@@ -52,7 +54,7 @@ graph TB
                 DB1 --> VNET1
             end
             
-            subgraph "Dev (10.2.0.0/16)"
+            subgraph "Dev (10.19.32.0/20)"
                 APP3["App 3<br/>Private Endpoint"]
                 DB2["SQL Database<br/>TDE Encryption"]
                 VNET2["Spoke VNet - Dev"]
@@ -62,7 +64,7 @@ graph TB
         end
         
         subgraph "Project B"
-            subgraph "Prod (10.3.0.0/16)"
+            subgraph "Prod (10.19.48.0/20)"
                 APP4["App 4<br/>Private Endpoint"]
                 APP5["App 5<br/>Private Endpoint"]
                 DB3["Cosmos DB<br/>Customer Managed Keys"]
@@ -117,13 +119,13 @@ graph TD
 ```mermaid
 graph TB
     subgraph "South Africa North Region"
-        subgraph "Hub VNet (10.0.0.0/16)"
-            FW_SUBNET["Firewall Subnet<br/>10.0.1.0/24"]
-            BASTION_SUBNET["Bastion Subnet<br/>10.0.2.0/24"]
-            GATEWAY_SUBNET["Gateway Subnet<br/>10.0.3.0/24"]
-            PE_SUBNET["Private Endpoints<br/>10.0.4.0/24"]
-            SHARED_SUBNET["Shared Services<br/>10.0.5.0/24"]
-            MGMT_SUBNET["Management<br/>10.0.6.0/24"]
+        subgraph "Hub VNet (10.19.0.0/16)"
+            FW_SUBNET["Firewall Subnet<br/>10.19.0.0/24"]
+    BASTION_SUBNET["Bastion Subnet<br/>10.19.1.0/24"]
+    GATEWAY_SUBNET["Gateway Subnet<br/>10.19.2.0/24"]
+    PE_SUBNET["Private Endpoints<br/>10.19.3.0/24"]
+    SHARED_SUBNET["Shared Services<br/>10.19.4.0/24"]
+    MGMT_SUBNET["Management<br/>10.19.5.0/24"]
             
             FW["Azure Firewall"]
             BASTION["Bastion Host"]
@@ -137,19 +139,19 @@ graph TB
         end
         
         subgraph "Project A VNets"
-            subgraph "Prod (10.1.0.0/16)"
-                APP_SUBNET_A1["App Tier<br/>10.1.1.0/24"]
-                DB_SUBNET_A1["Data Tier<br/>10.1.2.0/24"]
-                INT_SUBNET_A1["Integration<br/>10.1.3.0/24"]
+            subgraph "Prod (10.19.16.0/20)"
+                APP_SUBNET_A1["App Tier<br/>10.19.16.0/24"]
+                DB_SUBNET_A1["Data Tier<br/>10.19.17.0/24"]
+                INT_SUBNET_A1["Integration<br/>10.19.18.0/24"]
                 VNET_A_PROD["Spoke VNet Prod"]
                 APP_SUBNET_A1 --> VNET_A_PROD
                 DB_SUBNET_A1 --> VNET_A_PROD
                 INT_SUBNET_A1 --> VNET_A_PROD
             end
             
-            subgraph "Dev (10.2.0.0/16)"
-                APP_SUBNET_A2["App Tier<br/>10.2.1.0/24"]
-                DB_SUBNET_A2["Data Tier<br/>10.2.2.0/24"]
+            subgraph "Dev (10.19.32.0/20)"
+                APP_SUBNET_A2["App Tier<br/>10.19.32.0/24"]
+                DB_SUBNET_A2["Data Tier<br/>10.19.33.0/24"]
                 VNET_A_DEV["Spoke VNet Dev"]
                 APP_SUBNET_A2 --> VNET_A_DEV
                 DB_SUBNET_A2 --> VNET_A_DEV
@@ -157,9 +159,9 @@ graph TB
         end
         
         subgraph "Project B VNets"
-            subgraph "Prod (10.3.0.0/16)"
-                APP_SUBNET_B1["App Tier<br/>10.3.1.0/24"]
-                DB_SUBNET_B1["Data Tier<br/>10.3.2.0/24"]
+            subgraph "Prod (10.19.48.0/20)"
+                APP_SUBNET_B1["App Tier<br/>10.19.48.0/24"]
+                DB_SUBNET_B1["Data Tier<br/>10.19.49.0/24"]
                 VNET_B_PROD["Spoke VNet Prod"]
                 APP_SUBNET_B1 --> VNET_B_PROD
                 DB_SUBNET_B1 --> VNET_B_PROD
@@ -204,7 +206,7 @@ graph LR
     USER["User<br/>Internet"]
     GW["Application Gateway<br/>WAF, SSL"]
     APP["App Service<br/>Managed Identity"]
-    PE["Private Endpoint<br/>10.0.4.0/24"]
+    PE["Private Endpoint<br/>10.19.3.0/24"]
     DNS["Private DNS Zone<br/>privatelink.database.windows.net"]
     DB["SQL Database<br/>TDE Encryption"]
     
@@ -304,10 +306,23 @@ graph LR
     DEV["Developer<br/>Local Machine"]
     REPO["GitHub Repo<br/>Main Branch"]
     PR["Pull Request<br/>Code Review"]
-    PLAN["Terraform Plan<br/>Self-Hosted Runner"]
+    PLAN["Bicep Build & What-If<br/>Self-Hosted Runner"]
     REVIEW["Approve<br/>& Merge"]
-    DEPLOY["Terraform Apply<br/>Self-Hosted Runner"]
+    CONNECT["Connectivity Stage<br/>Deploy Hub, Firewall, Bastion"]
+    PROJECT["Project Stage<br/>Deploy Spoke Subscriptions"]
     AZURE["Azure Deployment<br/>via Managed Identity"]
+    DEV -->|Feature Branch| REPO
+    REPO -->|Create PR| PR
+    PR -->|Trigger| PLAN
+    PLAN -->|Generate Artifacts| PR
+    PR -->|Review & Approve| REVIEW
+    REVIEW -->|Merge to Main| CONNECT
+    CONNECT -->|Deploy connectivity landing zone| PROJECT
+    PROJECT -->|Provision project subscriptions| AZURE
+    AZURE -->|Log Output| REPO
+    style PLAN fill:#ffcc99
+    style CONNECT fill:#99ccff
+    style PROJECT fill:#99ff99
     
     DEV -->|Feature Branch| REPO
     REPO -->|Create PR| PR
@@ -363,13 +378,13 @@ graph TB
 ```mermaid
 graph TB
     subgraph "GitHub"
-        IaC["Infrastructure Code<br/>Terraform/Bicep"]
+        IaC["Infrastructure Code<br/>Bicep"]
         WORKFLOW["GitHub Actions<br/>Workflows"]
     end
     
     subgraph "Private Network<br/>Azure"
         RUNNER["Self-Hosted Runner<br/>Hub VNet VM"]
-        TF["Terraform Executor<br/>Plan/Apply"]
+        BICEP_EXEC["Bicep Executor<br/>Build/Deploy"]
         AZURE_API["Azure Resource Manager<br/>API"]
     end
     

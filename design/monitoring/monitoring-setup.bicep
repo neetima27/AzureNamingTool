@@ -10,7 +10,7 @@ var commonTags = {
   Environment: environment
   Project: 'Platform'
   Owner: 'platform-team@banking.com'
-  ManagedBy: 'Terraform'
+  ManagedBy: 'Bicep'
   DataClassification: 'Confidential'
 }
 
