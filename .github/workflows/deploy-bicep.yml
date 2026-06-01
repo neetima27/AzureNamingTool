@@ -1,0 +1,304 @@
+name: 'Deploy Bicep Landing Zone'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bicep/**'
+      - '.github/workflows/deploy-bicep.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'bicep/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  BICEP_VERSION: '0.21.1'
+  AZURE_LOCATION: 'southafricanorth'
+
+jobs:
+  validate:
+    name: 'Validate Bicep Templates'
+    runs-on: [self-hosted, Linux, private-network]
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Validate Bicep Syntax'
+        run: |
+          for file in bicep/landing-zone/*.bicep bicep/modules/**/*.bicep; do
+            if [ -f "$file" ]; then
+              echo "Validating $file"
+              az bicep build --file "$file" --output-format json --no-restore
+            fi
+          done
+
+      - name: 'Lint Bicep Files'
+        run: |
+          for file in bicep/landing-zone/*.bicep bicep/modules/**/*.bicep; do
+            if [ -f "$file" ]; then
+              echo "Linting $file"
+              az bicep lint --file "$file"
+            fi
+          done
+
+  build:
+    name: 'Build Bicep Templates'
+    needs: validate
+    runs-on: [self-hosted, Linux, private-network]
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Build Bicep to ARM Template'
+        run: |
+          mkdir -p build/
+          az bicep build --file bicep/landing-zone/main.bicep --outdir build/
+
+      - name: 'Upload Build Artifacts'
+        uses: actions/upload-artifact@v3
+        with:
+          name: bicep-build
+          path: build/
+          retention-days: 5
+
+  plan-dev:
+    name: 'Plan Dev Deployment'
+    needs: build
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Linux, private-network]
+    environment:
+      name: development
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Download Build Artifacts'
+        uses: actions/download-artifact@v3
+        with:
+          name: bicep-build
+          path: build/
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Azure Login'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          allow-no-subscriptions: false
+
+      - name: 'What-If Dev Deployment'
+        run: |
+          az deployment sub what-if \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file build/main.json \
+            --parameters bicep/parameters/dev.parameters.json \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  plan-staging:
+    name: 'Plan Staging Deployment'
+    needs: build
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Linux, private-network]
+    environment:
+      name: staging
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Download Build Artifacts'
+        uses: actions/download-artifact@v3
+        with:
+          name: bicep-build
+          path: build/
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Azure Login'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          allow-no-subscriptions: false
+
+      - name: 'What-If Staging Deployment'
+        run: |
+          az deployment sub what-if \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file build/main.json \
+            --parameters bicep/parameters/staging.parameters.json \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-dev:
+    name: 'Deploy Dev'
+    needs: [validate, build, plan-dev]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: [self-hosted, Linux, private-network]
+    environment:
+      name: development
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Download Build Artifacts'
+        uses: actions/download-artifact@v3
+        with:
+          name: bicep-build
+          path: build/
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Azure Login'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          allow-no-subscriptions: false
+
+      - name: 'Deploy Dev Landing Zone'
+        run: |
+          az deployment sub create \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file build/main.json \
+            --parameters bicep/parameters/dev.parameters.json \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+            --name "bicep-landing-zone-dev-$(date +%s)"
+
+      - name: 'Generate Deployment Report'
+        if: always()
+        run: |
+          echo "## Dev Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: dev" >> $GITHUB_STEP_SUMMARY
+          echo "Region: ${{ env.AZURE_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy-staging:
+    name: 'Deploy Staging'
+    needs: [validate, build, plan-staging, deploy-dev]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: [self-hosted, Linux, private-network]
+    environment:
+      name: staging
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Download Build Artifacts'
+        uses: actions/download-artifact@v3
+        with:
+          name: bicep-build
+          path: build/
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Azure Login'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          allow-no-subscriptions: false
+
+      - name: 'Deploy Staging Landing Zone'
+        run: |
+          az deployment sub create \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file build/main.json \
+            --parameters bicep/parameters/staging.parameters.json \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+            --name "bicep-landing-zone-staging-$(date +%s)"
+
+      - name: 'Generate Deployment Report'
+        if: always()
+        run: |
+          echo "## Staging Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: staging" >> $GITHUB_STEP_SUMMARY
+          echo "Region: ${{ env.AZURE_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy-prod:
+    name: 'Deploy Production'
+    needs: [validate, build, deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: [self-hosted, Linux, private-network]
+    environment:
+      name: production
+    concurrency:
+      group: prod-deployment
+      cancel-in-progress: false
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Download Build Artifacts'
+        uses: actions/download-artifact@v3
+        with:
+          name: bicep-build
+          path: build/
+
+      - name: 'Setup Azure CLI'
+        uses: azure/setup-azure-cli@v3
+        with:
+          azcliversion: 'latest'
+
+      - name: 'Azure Login'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          allow-no-subscriptions: false
+
+      - name: 'What-If Production Deployment'
+        run: |
+          az deployment sub what-if \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file build/main.json \
+            --parameters bicep/parameters/prod.parameters.json \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: 'Deploy Production Landing Zone'
+        run: |
+          az deployment sub create \
+            --location ${{ env.AZURE_LOCATION }} \
+            --template-file build/main.json \
+            --parameters bicep/parameters/prod.parameters.json \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+            --name "bicep-landing-zone-prod-$(date +%s)"
+
+      - name: 'Generate Deployment Report'
+        if: always()
+        run: |
+          echo "## Production Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: prod" >> $GITHUB_STEP_SUMMARY
+          echo "Region: ${{ env.AZURE_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **PRODUCTION DEPLOYMENT COMPLETED**" >> $GITHUB_STEP_SUMMARY
